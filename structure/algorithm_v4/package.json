@@ -1,0 +1,16 @@
+{
+	"name": "structure",
+	"version": "1.0.0",
+	"main": "index.ts",
+	"scripts": {
+		"start": "ts-node"
+	},
+	"author": "",
+	"license": "ISC",
+	"devDependencies": {
+		"ts-node": "^8.10.1",
+		"typescript": "^3.9.2"
+	},
+	"dependencies": {},
+	"description": ""
+}
