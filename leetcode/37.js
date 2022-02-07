@@ -1,148 +1,175 @@
 // 解数独
-const solveSudoku = function(board) {
-    let blanks = [];
+const solveSudoku = function (board) {
+  let cache = {};
 
-    // 初始化空格记录
-    for(let i = 0; i < 9; i++) {
-        for(let j = 0; j < 9; j++) {
-            if(board[i][j] !== ".") continue;
-             
-            // 记录空格
-            blanks.push({
-                i, j, // 记录空格坐标
-                options: [1, 2, 3, 4, 5, 6, 7, 8, 9],  // 默认可填选项
-                exclusive: [] // 互斥的空格记录下标
-            });
+  for (let i = 0; i < 9; i++) {
+    for (let j = 0; j < 9; j++) {
+      if (board[i][j] !== '.') continue;
 
-            let latest = blanks.length - 1;
+      const result = calcPosibility(board, i, j);
 
-            // 与已记录空格的互斥关系
-            for(let k = 0; k < latest; k++) {
-                if( isExclusive(blanks[k].i, blanks[k].j, i, j) ) {
-                    blanks[k].exclusive.push(latest);
-                    blanks[latest].exclusive.push(k);
-                }
-            }
-        }
+      if (!result?.length) {
+        console.log('无解');
+        return;
+      }
+
+      if (result.length === 1) {
+        board[i][j] = result[0].toString();
+        recheckPrev(board, i, j, cache);
+      } else {
+        cache[`${i},${j}`] = result;
+      }
     }
+  }
 
-    // 根据已填写数字， 更新每个空格的可填选项
-    for(let i = 0; i < 9; i++) {
-        for(let j = 0; j < 9; j++) {
-            if(board[i][j] === ".") continue;
-            
-            blanks.forEach(blank => {
-                if(isExclusive(i, j, blank.i, blank.j)) {
-                    blank.options = blank.options.filter(opt => opt !== parseInt(board[i][j]));
-                }
-            });
-        }
-    }
-
-    // 最终填完的空格记录
-    blanks = calcBlanks(blanks, 0);
-
-    if(!blanks) return console.log("无解");
-
-    // 根据空格记录更新 board
-    for(let k = 0; k < blanks.length; k++) {
-        const {i, j, value} = blanks[k];
-        board[i][j] = value.toString();
-    }
+  console.log(cache, Object.keys(cache).length);
 };
 
-// 判断两个坐标是否互斥
-function isExclusive(i, j, targetI, targetJ) {
-    return (
-        i === targetI || // 同一行
-        j === targetJ || // 同一列
-        ( Math.floor(i/3) === Math.floor(targetI/3) &&  Math.floor(j/3) === Math.floor(targetJ/3)  ) // 同一网格
-    )
-}
+const calcPosibility = (board, i, j) => {
+  const row = existRow(board, i);
+  const col = existCol(board, j);
+  const square = existSquare(board, i, j);
 
-// 计算空格的填写
-function calcBlanks(blanks, n){
+  let result = [];
+  for (let i = 1; i <= 9; i++) {
+    if (row.includes(i)) continue;
+    if (col.includes(i)) continue;
+    if (square.includes(i)) continue;
 
-    // console.log(n);
+    result.push(i);
+  }
+  return result;
+};
 
-    // 仍然为空的记录
-    const stillEmpty = blanks.filter(blank => !blank.value);
+const existRow = (board, i) => {
+  let result = [];
+  for (let k = 0; k < 9; k++) {
+    if (board[i][k] !== '.') result.push(parseInt(board[i][k]));
+  }
+  return result;
+};
 
-    // 已全部填写完成
-    if( stillEmpty.length === 0 ) return blanks;
+const existCol = (board, j) => {
+  let result = [];
+  for (let k = 0; k < 9; k++) {
+    if (board[k][j] !== '.') result.push(parseInt(board[k][j]));
+  }
+  return result;
+};
 
-    // 待填写的网格，已没有可填选项时，表示此路不通；
-    if( stillEmpty.find(blank => blank.options.length === 0) ) return null;
+const existSquare = (board, i, j) => {
+  const [x, y] = calcLocate(i, j);
 
-    // 保存备份
-    let origin = JSON.parse(JSON.stringify(blanks));
+  let result = [];
 
-    // 将全部唯一选项填写完成， 无返回表示剩余的空格无法自洽
-    if(!fillOnlyOption(origin)) return null;
+  for (let k = 0; k < 9; k++) {
+    const [targetI, targetJ] = calcValue(x, y, k);
 
-    // 填写最近的一个格子
-    let index = blanks.findIndex(blank => !blank.value);
+    if (board[targetI][targetJ] !== '.')
+      result.push(parseInt(board[targetI][targetJ]));
+  }
+  return result;
+};
 
-    for(let i=0; i < blanks[index].options.length; i++) {
-        let blank = blanks[index];
-        const val = blank.options[i];
+const calcLocate = (i, j) => {
+  const x = Math.floor(i / 3);
+  const y = Math.floor(j / 3);
 
-        blank.value = val;
-        
-        blank.exclusive.forEach(exclusive => {
-            if(!blanks[exclusive].value) {
-                blanks[exclusive].options = blanks[exclusive].options.filter(opt => opt !== val);
-            }
-        });
-        
-        let result = calcBlanks(blanks, n+1);
-        
-        if(result) return result;
-        // 重置 blanks
-        blanks = origin;
+  const t = 3 * i - 9 * x + j - 3 * y;
+
+  return [x, y, t];
+};
+
+const calcValue = (x, y, k) => {
+  const i = 3 * x + Math.floor(k / 3);
+  const j = 3 * y + (k % 3);
+
+  return [i, j];
+};
+
+const recheckPrev = (board, i, j, cache) => {
+  recheckRow(board, i, j, cache);
+  recheckCol(board, i, j, cache);
+  recheckSquare(board, i, j, cache);
+};
+
+const recheckRow = (board, i, j, cache) => {
+  for (let k = 0; k < 9; k++) {
+    const key = `${i},${k}`;
+
+    if (k !== j && cache[key]) {
+      cache[key] = cache[key].filter((el) => el !== parseInt(board[i][j]));
+
+      if (cache[key].length === 1) {
+        board[i][k] = cache[key][0].toString();
+        delete cache[key];
+        recheckPrev(board, i, k, cache);
+      }
     }
+  }
+};
 
-    return null;
-}
+const recheckCol = (board, i, j, cache) => {
+  for (let k = 0; k < 9; k++) {
+    const key = `${k},${j}`;
 
+    if (k !== i && cache[key]) {
+      cache[key] = cache[key].filter((el) => el !== parseInt(board[i][j]));
 
-function fillOnlyOption(blanks) {
-    let onlyOption = [];
-
-    while(true) {
-        onlyOption = blanks.filter(blank => !blank.value && blank.options.length === 1);
-
-        if(onlyOption.length === 0) return blanks;
-
-        onlyOption.map(blank => {
-            const val = blank.options[0];
-    
-            blank.value = val;
-            
-            blank.exclusive.forEach(index => {
-                if(!blanks[index].value) {
-                    blanks[index].options = blanks[index].options.filter(opt => opt!== val);
-                    // 互斥的空格已无可填选项
-                    if(blanks[index].options.length === 0) return null;
-                }
-            });
-        });
+      if (cache[key].length === 1) {
+        board[k][j] = cache[key][0].toString();
+        delete cache[key];
+        recheckPrev(board, k, j, cache);
+      }
     }
-}
+  }
+};
 
+const recheckSquare = (board, i, j, cache) => {
+  const [x, y] = calcLocate(i, j);
+
+  for (let k = 0; k < 9; k++) {
+    const [targetI, targetJ] = calcValue(x, y, k);
+
+    const key = `${targetI},${targetJ}`;
+
+    if (targetI !== i && targetJ !== j && cache[key]) {
+      cache[key] = cache[key].filter((el) => el !== parseInt(board[i][j]));
+      if (cache[key].length === 1) {
+        board[targetI][targetJ] = cache[key][0].toString();
+        delete cache[key];
+        recheckPrev(board, targetI, targetJ, cache);
+      }
+    }
+  }
+};
 
 let source = [
-    ["5","3",".",".","7",".",".",".","."],
-    ["6",".",".",".",".","5",".",".","."],
-    [".",".","8",".",".",".",".","6","."],
-    ["8",".",".",".","6",".",".",".","3"],
-    ["4",".",".","8",".","3",".",".","."],
-    ["7",".",".",".","2",".",".",".","6"],
-    [".","6",".",".",".",".","2","8","."],
-    [".",".","1","4",".",".",".",".","5"],
-    [".",".",".",".","8",".",".","7","."]
+  ['.', '.', '9', '7', '4', '8', '.', '.', '.'],
+  ['7', '.', '.', '.', '.', '.', '.', '.', '.'],
+  ['.', '2', '.', '1', '.', '9', '.', '.', '.'],
+  ['.', '.', '7', '.', '.', '.', '2', '4', '.'],
+  ['.', '6', '4', '.', '1', '.', '5', '9', '.'],
+  ['.', '9', '8', '.', '.', '.', '3', '.', '.'],
+  ['.', '.', '.', '8', '.', '3', '.', '2', '.'],
+  ['.', '.', '.', '.', '.', '.', '.', '.', '6'],
+  ['.', '.', '.', '2', '7', '5', '9', '.', '.'],
 ];
 
+console.time();
 solveSudoku(source);
+console.timeEnd();
 
 console.log(source);
+
+const result = [
+  ['.', '.', '9', '7', '4', '8', '.', '.', '.'],
+  ['7', '.', '.', '6', '.', '2', '.', '.', '.'],
+  ['.', '2', '.', '1', '.', '9', '.', '.', '.'],
+  ['.', '.', '7', '9', '8', '6', '2', '4', '1'],
+  ['2', '6', '4', '3', '1', '7', '5', '9', '8'],
+  ['1', '9', '8', '5', '2', '4', '3', '6', '7'],
+  ['.', '.', '.', '8', '6', '3', '.', '2', '.'],
+  ['.', '.', '.', '4', '9', '1', '.', '.', '6'],
+  ['.', '.', '.', '2', '7', '5', '9', '.', '.'],
+];
