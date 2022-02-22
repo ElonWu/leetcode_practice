@@ -1,3 +1,5 @@
+const ListNode = require('./base');
+
 // 给你一个链表的头节点 head ，该链表包含由 0 分隔开的一连串整数。链表的 开端 和 末尾 的节点都满足 Node.val == 0 。
 
 // 对于每两个相邻的 0 ，请你将它们之间的所有节点合并成一个节点，其值是所有已合并节点的值之和。然后将所有 0 移除，修改后的链表不应该含有任何 0 。
@@ -49,25 +51,6 @@ var mergeNodes = function (head) {
   return res;
 };
 
-class Node {
-  constructor(arr) {
-    this.val = arr[0];
-    this.next = arr.length === 1 ? null : new Node(arr.slice(1));
-  }
-
-  console() {
-    let res = `${this.val}`,
-      next = this.next;
-
-    while (next) {
-      res += ` -> ${next.val}`;
-      next = next.next;
-    }
-
-    console.log(res);
-  }
-}
-
-const head = new Node([0, 3, 1, 0, 4, 5, 2, 0]);
+const head = new ListNode([0, 3, 1, 0, 4, 5, 2, 0]);
 
 mergeNodes(head);
