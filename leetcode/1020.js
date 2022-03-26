@@ -9,50 +9,55 @@
  * @return {number}
  */
 var numEnclaves = function (grid) {
-  let visited = [], // 可访问的陆地
-    count = 0; // 全部陆地数量
+  let count = 0;
 
   for (let i = 0; i < grid.length; i++) {
     for (let j = 0; j < grid[0].length; j++) {
-      if (grid[i][j] === 0) continue;
-
-      count++;
-
-      // 未访问过的边界
-      const isEdge =
-        i === 0 || i === grid.length - 1 || j === 0 || j === grid[0].length - 1;
-      if (isEdge && !visited.includes(`${i},${j}`)) {
-        exploreFromEdge(i, j, grid, visited);
+      if (grid[i][j] === 1) {
+        count += exploreFrom(i, j, grid);
       }
     }
   }
-
-  return count - visited.length;
+  return count;
 };
 
-const exploreFromEdge = (i, j, grid, visited) => {
-  visited.push(`${i},${j}`);
+const exploreFrom = (r, c, grid) => {
+  let canTouchEdge =
+    r === 0 || r === grid.length - 1 || c === 0 || c === grid[0].length - 1;
+
+  // 将访问过的陆地标记为2
+  let count = 1;
+  grid[r][c] = 2;
 
   // 访问四周
   const siblings = [
-    [i - 1, j],
-    [i + 1, j],
-    [i, j - 1],
-    [i, j + 1],
+    [r - 1, c],
+    [r + 1, c],
+    [r, c - 1],
+    [r, c + 1],
   ];
 
-  for (let [row, col] of siblings) {
-    // 无效点
-    if (row < 0 || row >= grid.length || col < 0 || col >= grid[0].length)
-      continue;
-    if (grid[row][col] === 0) continue;
+  for (let [r0, c0] of siblings) {
+    if (grid[r0]?.[c0] === 1) {
+      let nextCount = exploreFrom(r0, c0, grid);
 
-    // 已访问
-    if (visited.includes(`${row},${col}`)) continue;
+      // 当前就能触及边界
+      if (canTouchEdge) continue;
 
-    // 未访问
-    exploreFromEdge(row, col, grid, visited);
+      // 下一步能触及边界
+      if (nextCount === 0) {
+        canTouchEdge = true;
+        continue;
+      }
+
+      // 任一步无法触及边界， 累计格子数量
+      count += nextCount;
+    }
   }
+
+  // 一旦能触及到边界，则独立单元格数量为0
+  // 否则为全部累积可访问的格子数量
+  return canTouchEdge ? 0 : count;
 };
 
 // const grid = [

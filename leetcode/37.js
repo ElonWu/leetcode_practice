@@ -1,150 +1,130 @@
 // 解数独
 const solveSudoku = function (board) {
-  let cache = {};
+  let candidates = {};
 
-  for (let i = 0; i < 9; i++) {
-    for (let j = 0; j < 9; j++) {
-      if (board[i][j] !== '.') continue;
-
-      const result = calcPosibility(board, i, j);
-
-      if (!result?.length) {
-        console.log('无解');
-        return;
-      }
-
-      if (result.length === 1) {
-        board[i][j] = result[0].toString();
-        recheckPrev(board, i, j, cache);
-      } else {
-        cache[`${i},${j}`] = result;
+  // 全部设定candidates
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (board[r][c] === '.') {
+        candidates[`${r}-${c}`] = new Set([
+          '1',
+          '2',
+          '3',
+          '4',
+          '5',
+          '6',
+          '7',
+          '8',
+          '9',
+        ]);
       }
     }
   }
 
-  console.log(cache, Object.keys(cache).length);
-};
-
-const calcPosibility = (board, i, j) => {
-  const row = existRow(board, i);
-  const col = existCol(board, j);
-  const square = existSquare(board, i, j);
-
-  let result = [];
-  for (let i = 1; i <= 9; i++) {
-    if (row.includes(i)) continue;
-    if (col.includes(i)) continue;
-    if (square.includes(i)) continue;
-
-    result.push(i);
+  // 除去不可能的candidates
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (board[r][c] !== '.') narrowDown(r, c, board, candidates);
+    }
   }
-  return result;
+
+  const keys = Object.keys(candidates);
+  // 递归 + 回溯尝试剩余的candidates
+  tryCandidates(board, candidates, keys, 0);
+  return board;
 };
 
-const existRow = (board, i) => {
-  let result = [];
-  for (let k = 0; k < 9; k++) {
-    if (board[i][k] !== '.') result.push(parseInt(board[i][k]));
-  }
-  return result;
-};
+// r c 位置被确认， 把所有冲突的 candidate 剔除
+const narrowDown = function (r, c, board, candidates) {
+  const occupied = board[r][c];
+  const confilictPos = findConflictPos(r, c);
 
-const existCol = (board, j) => {
-  let result = [];
-  for (let k = 0; k < 9; k++) {
-    if (board[k][j] !== '.') result.push(parseInt(board[k][j]));
-  }
-  return result;
-};
+  for (let [r0, c0] of confilictPos) {
+    // 当前位置的 candidates
+    const currPosCandidates = candidates[`${r0}-${c0}`];
+    if (!currPosCandidates) continue;
 
-const existSquare = (board, i, j) => {
-  const [x, y] = calcLocate(i, j);
+    // 过滤掉所有冲突的candidate
+    currPosCandidates.delete(occupied);
 
-  let result = [];
+    // 如果是单个 candidate，则把这个 candidate 放到 board 中
+    if (currPosCandidates.size === 1) {
+      board[r0][c0] = [...currPosCandidates][0];
+      // 删除这个 candidate
+      delete candidates[`${r0}-${c0}`];
 
-  for (let k = 0; k < 9; k++) {
-    const [targetI, targetJ] = calcValue(x, y, k);
-
-    if (board[targetI][targetJ] !== '.')
-      result.push(parseInt(board[targetI][targetJ]));
-  }
-  return result;
-};
-
-const calcLocate = (i, j) => {
-  const x = Math.floor(i / 3);
-  const y = Math.floor(j / 3);
-
-  const t = 3 * i - 9 * x + j - 3 * y;
-
-  return [x, y, t];
-};
-
-const calcValue = (x, y, k) => {
-  const i = 3 * x + Math.floor(k / 3);
-  const j = 3 * y + (k % 3);
-
-  return [i, j];
-};
-
-const recheckPrev = (board, i, j, cache) => {
-  recheckRow(board, i, j, cache);
-  recheckCol(board, i, j, cache);
-  recheckSquare(board, i, j, cache);
-};
-
-const recheckRow = (board, i, j, cache) => {
-  for (let k = 0; k < 9; k++) {
-    const key = `${i},${k}`;
-
-    if (k !== j && cache[key]) {
-      cache[key] = cache[key].filter((el) => el !== parseInt(board[i][j]));
-
-      if (cache[key].length === 1) {
-        board[i][k] = cache[key][0].toString();
-        delete cache[key];
-        recheckPrev(board, i, k, cache);
-      }
+      // 连锁反应
+      narrowDown(r0, c0, board, candidates);
     }
   }
 };
 
-const recheckCol = (board, i, j, cache) => {
-  for (let k = 0; k < 9; k++) {
-    const key = `${k},${j}`;
+const findConflictPos = (() => {
+  const cache = {};
+  return (r, c) => {
+    if (cache[`${r}-${c}`]) return cache[`${r}-${c}`];
+    const keys = [];
 
-    if (k !== i && cache[key]) {
-      cache[key] = cache[key].filter((el) => el !== parseInt(board[i][j]));
+    // 同一行
+    for (let i = 0; i < 9; i++) {
+      if (i === c) continue;
+      keys.push([r, i]);
+    }
 
-      if (cache[key].length === 1) {
-        board[k][j] = cache[key][0].toString();
-        delete cache[key];
-        recheckPrev(board, k, j, cache);
+    // 同一列
+    for (let i = 0; i < 9; i++) {
+      if (i === r) continue;
+      keys.push([i, c]);
+    }
+
+    // 同一个九宫格
+    const [r0, c0] = [Math.floor(r / 3) * 3, Math.floor(c / 3) * 3];
+
+    for (let i = r0; i < r0 + 3; i++) {
+      for (let j = c0; j < c0 + 3; j++) {
+        if (i === r && j === c) continue;
+        keys.push([i, j]);
       }
     }
+
+    cache[`${r}-${c}`] = keys;
+    return keys;
+  };
+})();
+
+const tryCandidates = (board, candidates, keys, i) => {
+  if (i === keys.length) return true;
+
+  const key = keys[i];
+  const [r, c] = key.split('-');
+  const candidate = [...candidates[key]];
+
+  for (let j = 0; j < candidate.length; j++) {
+    // 验证当前位置是否可以放这个数字
+    const verified = verify(board, r, c, candidate[j]);
+    if (!verified) continue;
+
+    // 尝试占据
+    board[r][c] = candidate[j];
+    // 验证剩余冲突
+    if (tryCandidates(board, candidates, keys, i + 1)) return true;
+    // 剩余不通过则回溯
+    board[r][c] = '.';
   }
+
+  return false;
 };
 
-const recheckSquare = (board, i, j, cache) => {
-  const [x, y] = calcLocate(i, j);
-
-  for (let k = 0; k < 9; k++) {
-    const [targetI, targetJ] = calcValue(x, y, k);
-
-    const key = `${targetI},${targetJ}`;
-
-    if (targetI !== i && targetJ !== j && cache[key]) {
-      cache[key] = cache[key].filter((el) => el !== parseInt(board[i][j]));
-      if (cache[key].length === 1) {
-        board[targetI][targetJ] = cache[key][0].toString();
-        delete cache[key];
-        recheckPrev(board, targetI, targetJ, cache);
-      }
-    }
+const verify = (board, r, c, num) => {
+  const confilictPos = findConflictPos(r, c);
+  for (let [r0, c0] of confilictPos) {
+    if (board[r0][c0] === num) return false;
   }
+
+  return true;
 };
 
-let source = [
+let source1 = [
   ['.', '.', '9', '7', '4', '8', '.', '.', '.'],
   ['7', '.', '.', '.', '.', '.', '.', '.', '.'],
   ['.', '2', '.', '1', '.', '9', '.', '.', '.'],
@@ -157,19 +137,33 @@ let source = [
 ];
 
 console.time();
-solveSudoku(source);
+console.log(solveSudoku(source1));
 console.timeEnd();
 
-console.log(source);
+// const result = [
+//   ['.', '.', '9', '7', '4', '8', '.', '.', '.'],
+//   ['7', '.', '.', '6', '.', '2', '.', '.', '.'],
+//   ['.', '2', '.', '1', '.', '9', '.', '.', '.'],
+//   ['.', '.', '7', '9', '8', '6', '2', '4', '1'],
+//   ['2', '6', '4', '3', '1', '7', '5', '9', '8'],
+//   ['1', '9', '8', '5', '2', '4', '3', '6', '7'],
+//   ['.', '.', '.', '8', '6', '3', '.', '2', '.'],
+//   ['.', '.', '.', '4', '9', '1', '.', '.', '6'],
+//   ['.', '.', '.', '2', '7', '5', '9', '.', '.'],
+// ];
 
-const result = [
-  ['.', '.', '9', '7', '4', '8', '.', '.', '.'],
-  ['7', '.', '.', '6', '.', '2', '.', '.', '.'],
-  ['.', '2', '.', '1', '.', '9', '.', '.', '.'],
-  ['.', '.', '7', '9', '8', '6', '2', '4', '1'],
-  ['2', '6', '4', '3', '1', '7', '5', '9', '8'],
-  ['1', '9', '8', '5', '2', '4', '3', '6', '7'],
-  ['.', '.', '.', '8', '6', '3', '.', '2', '.'],
-  ['.', '.', '.', '4', '9', '1', '.', '.', '6'],
-  ['.', '.', '.', '2', '7', '5', '9', '.', '.'],
-];
+// const source2 = [
+//   ['5', '3', '.', '.', '7', '.', '.', '.', '.'],
+//   ['6', '.', '.', '1', '9', '5', '.', '.', '.'],
+//   ['.', '9', '8', '.', '.', '.', '.', '6', '.'],
+//   ['8', '.', '.', '.', '6', '.', '.', '.', '3'],
+//   ['4', '.', '.', '8', '.', '3', '.', '.', '1'],
+//   ['7', '.', '.', '.', '2', '.', '.', '.', '6'],
+//   ['.', '6', '.', '.', '.', '.', '2', '8', '.'],
+//   ['.', '.', '.', '4', '1', '9', '.', '.', '5'],
+//   ['.', '.', '.', '.', '8', '.', '.', '7', '9'],
+// ];
+
+// console.time();
+// console.log(solveSudoku(source1));
+// console.timeEnd();
