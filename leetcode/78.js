@@ -23,18 +23,16 @@
 //     return nextArr.concat(nextArr.map(el => [...el, curr]));
 // }
 
+var subsets = function (nums) {
+  let result = [[]];
 
-var subsets = function(nums) {
-    let result =[[]];
+  for (let i = 0; i < nums.length; i++) {
+    result.forEach((curr) => result.push(curr.concat(nums[i])));
+  }
 
-    for(let i=0; i<nums.length; i++) {
-        result.forEach(curr => result.push(curr.concat(nums[i])))
-    }
-    
-    return result;
-}
+  return result;
+};
 
-const source = [1,2,3];
-
+const source = [1, 2, 3];
 
 console.log(subsets(source));
